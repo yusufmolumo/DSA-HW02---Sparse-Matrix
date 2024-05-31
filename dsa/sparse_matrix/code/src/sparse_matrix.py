@@ -1,103 +1,141 @@
-class SparseMatrix:
-    def __init__(self, matrixFilePath=None, numRows=0, numCols=0):
-        if matrixFilePath:
-            self.numRows, self.numCols, self.elements = self._read_matrix_from_file(matrixFilePath)
-        else:
-            self.numRows = numRows
-            self.numCols = numCols
-            self.elements = {}
+def SparseMatrix(filename):
+    with open(filename, 'r') as file:
+        rows = int(file.readline().strip().split('=')[1])
+        cols = int(file.readline().strip().split('=')[1])
+        matrix = [[0] * cols for _ in range(rows)]
 
-    def _read_matrix_from_file(self, filePath):
-        elements = {}
-        with open(filePath, 'r') as file:
-            lines = file.readlines()
-            if not lines:
-                raise ValueError("Input file is empty")
-            rows = int(lines[0].strip().split('=')[1])
-            cols = int(lines[1].strip().split('=')[1])
-            for line in lines[2:]:
-                line = line.strip()
-                if line:
-                    if not line.startswith('(') or not line.endswith(')'):
-                        raise ValueError("Input file has wrong format")
-                    row, col, value = map(int, line[1:-1].split(','))
-                    elements[(row, col)] = value
-        return rows, cols, elements
+        for line in file:
+            entry = line.strip()
+            if entry:
+                try:
+                    r, c, v = map(int, entry[1:-1].split(','))
+                    matrix[r-1][c-1] = v
+                except Exception:
+                    raise Exception("Input file has wrong format")
 
-    def getElement(self, currRow, currCol):
-        return self.elements.get((currRow, currCol), 0)
+    return matrix
 
-    def setElement(self, currRow, currCol, value):
-        if value != 0:
-            self.elements[(currRow, currCol)] = value
-        elif (currRow, currCol) in self.elements:
-            del self.elements[(currRow, currCol)]
 
-    def __add__(self, other):
-        if self.numRows != other.numRows or self.numCols != other.numCols:
-            raise ValueError("Matrices dimensions do not match for addition")
-        result = SparseMatrix(numRows=self.numRows, numCols=self.numCols)
-        for key in self.elements:
-            result.setElement(*key, self.getElement(*key) + other.getElement(*key))
-        for key in other.elements:
-            if key not in self.elements:
-                result.setElement(*key, other.getElement(*key))
-        return result
+def add_matrices(matrix1, matrix2):
+    rows = len(matrix1)
+    cols = len(matrix1[0])
+    result = [[None] * cols for _ in range(rows)]
 
-    def __sub__(self, other):
-        if self.numRows != other.numRows or self.numCols != other.numCols:
-            raise ValueError("Matrices dimensions do not match for subtraction")
-        result = SparseMatrix(numRows=self.numRows, numCols=self.numCols)
-        for key in self.elements:
-            result.setElement(*key, self.getElement(*key) - other.getElement(*key))
-        for key in other.elements:
-            if key not in self.elements:
-                result.setElement(*key, -other.getElement(*key))
-        return result
+    for i in range(rows):
+        for j in range(cols):
+            result[i][j] = matrix1[i][j] + matrix2[i][j]
 
-    def __mul__(self, other):
-        if self.numCols != other.numRows:
-            raise ValueError("Matrices dimensions do not match for multiplication")
-        result = SparseMatrix(numRows=self.numRows, numCols=other.numCols)
-        for (i, k), v in self.elements.items():
-            for j in range(other.numCols):
-                result.setElement(i, j, result.getElement(i, j) + v * other.getElement(k, j))
-        return result
+    return result
 
-    def to_file(self, filePath):
-        with open(filePath, 'w') as file:
-            file.write(f"rows={self.numRows}\n")
-            file.write(f"cols={self.numCols}\n")
-            for (row, col), value in sorted(self.elements.items()):
-                file.write(f"({row}, {col}, {value})\n")
 
-def main():
-    import sys
-    if len(sys.argv) < 5:
-        print("Usage: python sparse_matrix.py <operation> <matrix1.txt> <matrix2.txt> <output.txt>")
-        return
+def subtract_matrices(matrix1, matrix2):
+    rows = len(matrix1)
+    cols = len(matrix1[0])
+    result = [[None] * cols for _ in range(rows)]
 
-    operation = sys.argv[1]
-    matrix1Path = sys.argv[2]
-    matrix2Path = sys.argv[3]
-    outputPath = sys.argv[4]
+    for i in range(rows):
+        for j in range(cols):
+            result[i][j] = matrix1[i][j] - matrix2[i][j]
 
-    matrix1 = SparseMatrix(matrixFilePath=matrix1Path)
-    matrix2 = SparseMatrix(matrixFilePath=matrix2Path)
+    return result
 
-    if operation == "add":
-        result = matrix1 + matrix2
-    elif operation == "subtract":
-        result = matrix1 - matrix2
-    elif operation == "multiply":
-        result = matrix1 * matrix2
-    else:
-        print("Invalid operation. Use 'add', 'subtract', or 'multiply'.")
-        return
 
-    result.to_file(outputPath)
-    print(f"Operation {operation} completed. Result written to {outputPath}")
+def multiply_matrices(matrix1, matrix2):
+    rows1 = len(matrix1)
+    cols1 = len(matrix1[0])
+    cols2 = len(matrix2[0])
+    result = [[0] * cols2 for _ in range(rows1)]
+
+    for i in range(rows1):
+        for j in range(cols2):
+            for k in range(cols1):
+                result[i][j] += matrix1[i][k] * matrix2[k][j]
+
+    return result
+
+
+def solve_matrix_sum(file1, file2):
+    # Read matrices from files
+    matrix1 = SparseMatrix(file1)
+    matrix2 = SparseMatrix(file2)
+
+    # Ensure matrices have the same dimensions for addition
+    if len(matrix1) != len(matrix2) or len(matrix1[0]) != len(matrix2[0]):
+        raise ValueError("Matrices must have the same dimensions for addition")
+
+    # Perform arithmetic operations
+    matrix_sum = add_matrices(matrix1, matrix2)
+
+    return matrix_sum
+
+
+def solve_matrix_diff(file1, file2):
+    # Read matrices from files
+    matrix1 = SparseMatrix(file1)
+    matrix2 = SparseMatrix(file2)
+
+    # Ensure matrices have the same dimensions for subtraction
+    if len(matrix1) != len(matrix2) or len(matrix1[0]) != len(matrix2[0]):
+        raise ValueError("Matrices must have the same dimensions for subtraction")
+
+    # Perform arithmetic operations
+    matrix_diff = subtract_matrices(matrix1, matrix2)
+
+    return matrix_diff
+
+
+def solve_matrix_product(file1, file2):
+    # Read matrices from files
+    matrix1 = SparseMatrix(file1)
+    matrix2 = SparseMatrix(file2)
+
+    # Ensure the matrices are compatible for multiplication
+    if len(matrix1[0]) != len(matrix2):
+        raise ValueError("Matrices must have compatible dimensions for multiplication")
+
+    matrix_product = multiply_matrices(matrix1, matrix2)
+
+    return matrix_product
+
+
+def write_to_file(matrix, output_file):
+    with open(output_file, 'w') as file:
+        for index, row in enumerate(matrix):
+            for index, col in enumerate(row):
+                if col != None:
+                    file.write(f"({index+1}, {index+1}, {col})\n")
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        first_file = input("Input the path of the first file: ")
+        second_file = input("Input the path of the second file: ")
+        operation = input("What operation do you want to perform [add, subtract, multiply]: ")
+        output_file = input("What's the name of the output file: ")
 
+        if operation not in ['add', 'subtract', 'multiply']:
+            raise ValueError("Invalid operation")
+
+        elif operation == 'add':
+            matrix_sum = solve_matrix_sum(first_file, second_file)
+            print("Matrix Sum:")
+            if not output_file:
+                output_file = 'matrix_sum.txt'
+            write_to_file(matrix_sum, output_file)
+
+        elif operation == 'subtract':
+            matrix_diff = solve_matrix_diff(first_file, second_file)
+            print("Matrix Difference:")
+            if not output_file:
+                output_file = 'matrix_diff.txt'
+            write_to_file(matrix_diff, output_file)
+
+        else:
+            matrix_product = solve_matrix_product(first_file, second_file)
+            print("Matrix Product:")
+            if not output_file:
+                output_file = 'matrix_product.txt'
+            write_to_file(matrix_product, output_file)
+
+    except Exception as ex:
+        print(f"Error: {ex}")
